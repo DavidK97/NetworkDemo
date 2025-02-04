@@ -25,10 +25,9 @@ public class SimpleDemo {
                 System.out.println("Message from client: " + inputLine);
                 if ("Exit".equals(inputLine)){ //Breaks the while loop if the client enters "Exit"
                     out.println("The server is shutting down");
-                    stop();
+                    break;
                 }
             }
-            in.readLine();
 
         } catch (IOException ex) {
             //TODO: Fjern stacktrace inden produktion

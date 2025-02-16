@@ -4,18 +4,16 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 
 public class SimpleDemo {
     private ServerSocket server;
 
-
     public void start () {
         try {
             server = new ServerSocket(8080);
-
-
-        while (true) {
+            while (true) {
                 Socket socket = server.accept();
                 Runnable clientHandler = new ClientHandler(socket);
                 new Thread (clientHandler).start();
@@ -23,29 +21,12 @@ public class SimpleDemo {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-/*
-        } finally { //Bliver altid udført
-            try {
-                stop();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-
-           */
-    }
-    /*
-    private void stop () throws IOException {
-        in.close();
-        out.close();
-        clientSocket.close();
-        server.close();
     }
 
-     */
 
     private static class ClientHandler implements Runnable {
         private Socket clientSocket;
+        private String echoMsg = "";
 
         public ClientHandler (Socket socket) {
             this.clientSocket = socket;
@@ -54,30 +35,35 @@ public class SimpleDemo {
         @Override
         public void run(){
             try {
-            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true); //Sekvens af 0'er og 1-taller der sendes
-            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            out.println("Connection established");
-            String inputLine;
-            while ((inputLine = in.readLine()) !=  null) { //Tjekker om der kommer noget ind fra klienten
+            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream())); //bytes til char
+            out.println("Connection established"); //Besked til klienten
+
+
+                // Tjekker om der kommer noget ind fra klienten
+                String inputLine;
+                while ((inputLine = in.readLine()) !=  null) {
                // System.out.println("Message from client: " + inputLine); //Printer i konsollen
 
-                //Breaks the while loop if the client enters "EXIT"
+
+                //Slutter while-loop, hvis klient skriver EXIT
                 if ("EXIT".equals(inputLine)) {
                     out.println("The server is shutting down");
                     in.close();
                     out.close();
                     clientSocket.close();
+
                     break;
                 }
 
-                //TODO: Tjekke om input fra klient overholder protokollen for et HTTP request, hvis ikke så returner "HTTP/1.1 400 Bad Request"
-                //TODO: Noget der bryder et request ned i "method", "path" og "protocol version" (.split på "/" og prop i Array)
-                //TODO: Hvis et GET request: så noget der håndterer /hello, /time, /echo (if-statements, eventuelt en switch?)
-                //TODO: Hvis et POST request: så noget der gemmer input fra bruger og returnere det på næste GET /echo request (Gemmer det i et array?)
-
+                //TODO: indexOutOfBounds
+                //Læser requests fra klienten
                 String [] request = inputLine.split(" ");
-                if (request.length == 3 && request[0].equals("GET") && request[2].equals("HTTP/1.1")) {
-                    switch (request[1]) {
+                String method = request[0];
+                String path = request[1];
+                String protocolVersion = request[2];
+                if (request.length == 3 && method.equals("GET") && protocolVersion.equals("HTTP/1.1")) {
+                    switch (path) {
                         case ("/hello"):
                                 printResponse(out);
                                 out.println("hello");
@@ -85,30 +71,31 @@ public class SimpleDemo {
 
                         case ("/time"):
                                 printResponse(out);
-                                out.println(LocalDateTime.now()); //Andet format
+                                out.println(LocalDateTime.now()); //TODO: udskriv i andet format
                                 break;
 
                         case ("/echo"):
+                            out.println((echoMsg));
                                 break;
                         default:
                             out.println("HTTP/1.1 400 Bad Request");
                             break;
                     }
-                } else if (request[0].equals("POST") && request[2].equals("HTTP/1.1")){
-                    switch (request[1]) {
+                } else if (request.length == 3 && method.equals("POST") && protocolVersion.equals("HTTP/1.1")){
+                    switch (path) {
                         case ("/echo"):
-                            /*
                             StringBuilder requestBuilder = new StringBuilder();
                             String newLine;
+
+                            //Læser og gemmer headers indtil en tom linje
                             while (in.ready() && (newLine = in.readLine()) != null && !newLine.isEmpty()) {
                                 requestBuilder.append(newLine).append("\n");
                             }
-                            
-                             */
+                            echoMsg = in.readLine();
+
+                            out.println("Message saved");
                             break;
                     }
-
-
                 } else {
                     out.println("HTTP/1.1 400 Bad Request");
                 }
@@ -120,28 +107,17 @@ public class SimpleDemo {
     }
 
     public static void printResponse(PrintWriter out) {
+        //TODO: udskift hardcoded response-data
         StringBuilder response = new StringBuilder();
         response.append("HTTP/1.1 200 OK  \n");
         response.append("Date: Sun, 26 Jan 2025 10:00:00 GMT \n");
         response.append("Server: Min server \n");
-        response.append("Content-Type: text/html; \n");
-        response.append("charset=UTF-8 \n");
+        response.append("Content-Type: text/html; charset=UTF-8 \n");
         response.append("Content-Length: 5");
 
         out.println(response);
     }
 
-/*
-    public String sendMessage(String msg) {
-        out.println(msg);
-        out.flush();
-        StringBuilder sb = new StringBuilder();
-        in.lines().forEach(sb::append);
-        String resp = sb.toString();
-        return resp;
-    }
-
- */
 
     public static void main(String[] args) {
         new SimpleDemo().start();
